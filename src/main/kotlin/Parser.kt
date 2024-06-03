@@ -175,12 +175,7 @@ class Parser(private val tokens: List<Token>) {
         }
     }
 
-    fun parseStatement(token: Token): Statement? {
-        return null
-    }
-
     fun expectBlock(): Block {
-
         val statements = mutableListOf<Statement>()
         while (true) {
             val token = currentToken()
