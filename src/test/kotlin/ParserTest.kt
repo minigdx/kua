@@ -166,5 +166,53 @@ class ParserTest {
         ast.print()
     }
 
+    @Test
+    fun testFunctionCall() {
+        val input = """print(3, 2)"""
+        val lexer = Lexer(input)
+        val tokens = lexer.tokenize()
+        val parser = Parser(tokens)
+        val ast = parser.parse()
+        ast.print()
+    }
 
+    @Test
+    fun testVarByIndex() {
+        val input = """toto[3] = 2"""
+        val lexer = Lexer(input)
+        val tokens = lexer.tokenize()
+        val parser = Parser(tokens)
+        val ast = parser.parse()
+        ast.print()
+    }
+
+    @Test
+    fun testVarByField() {
+        val input = """toto.tata = 2"""
+        val lexer = Lexer(input)
+        val tokens = lexer.tokenize()
+        val parser = Parser(tokens)
+        val ast = parser.parse()
+        ast.print()
+    }
+
+    @Test
+    fun testVarByField2() {
+        val input = """toto.tata.titi = 2"""
+        val lexer = Lexer(input)
+        val tokens = lexer.tokenize()
+        val parser = Parser(tokens)
+        val ast = parser.parse()
+        ast.print()
+    }
+
+    @Test
+    fun testNumber() {
+        val input = """a = 3.2"""
+        val lexer = Lexer(input)
+        val tokens = lexer.tokenize()
+        val parser = Parser(tokens)
+        val ast = parser.parse()
+        ast.print()
+    }
 }

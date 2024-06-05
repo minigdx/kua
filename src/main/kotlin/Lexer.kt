@@ -158,6 +158,10 @@ class Lexer(private val input: String) {
                 currentChar.isDigit() -> {
                     val start = position - 1
                     while (peekChar()?.isDigit() == true) nextChar()
+                    if(peekChar() == '.') {
+                        nextChar()
+                        while (peekChar()?.isDigit() == true) nextChar()
+                    }
                     val value = input.substring(start, position)
                     tokens.add(Token(TokenType.NUMBER, value, start, line, column - value.length))
                 }

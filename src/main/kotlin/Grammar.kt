@@ -31,10 +31,10 @@ data object EmptyAttrib : Attrib(name = EmptyName)
 sealed interface Function : PrefixExpression, Statement
 
 // prefixexp args
-class FunctionCall(prefixexp: PrefixExpression, args: Args) : Function
+class FunctionCall(val prefixexp: PrefixExpression, val args: Args) : Function
 
 // prefixexp ‘:’ Name args
-class MethodCall(prefixexp: PrefixExpression, name: Name, args: Args) : Function
+class MethodCall(val prefixexp: PrefixExpression, val name: Name, val args: Args) : Function
 
 // var ::=  Name | prefixexp ‘[’ exp ‘]’ | prefixexp ‘.’ Name
 sealed interface Var : PrefixExpression, Statement

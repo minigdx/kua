@@ -120,7 +120,11 @@ sealed interface ASTNode {
                 node.body.print(prefix + childPrefix, true, "Body")
             }
 
-            is FunctionCall -> TODO()
+            is FunctionCall -> {
+                println("$prefix$connector FunctionCall")
+                node.prefixexp.print(prefix + childPrefix, false)
+                node.args.print(prefix + childPrefix, true)
+            }
             is MethodCall -> TODO()
             is ParNamelist -> {
                 node.namelist.nameList.forEachAndLast { n, isLast ->
@@ -402,13 +406,15 @@ class Parser(private val tokens: List<Token>) {
                     expectToken(TokenType.SEMICOLON)
                     Nop
                 }
-                TokenType.EOF -> null
-                else -> tryStuff()
 
                 /**
                  * var -> ID ou prefix
                  * functioncall -> ID ou ID. ou ID[ ou (
                  */
+                TokenType.OPEN_PARENTHESIS,
+                TokenType.OPEN_BRACKET,
+                TokenType.IDENTIFIER -> constructStatement()
+                else -> null
             }
 
             when (statement) {
@@ -582,17 +588,18 @@ class Parser(private val tokens: List<Token>) {
     }
 
 
-    private fun tryStuff(
+    private fun constructStatement(
         current: MutableList<ASTNode> = mutableListOf(),
         previous: MutableList<ASTNode> = mutableListOf()
     ): Statement {
         fun createFunctionStatement(
             stack: MutableList<ASTNode>,
+            previous: MutableList<ASTNode>,
             args: Args
         ): Statement {
             return when (val prev = stack.last()) {
                 is PrefixExpression -> {
-                    stack.removeAt(stack.size - 1)
+                    stack.removeLast()
                     FunctionCall(prev, args)
                 }
 
@@ -614,8 +621,7 @@ class Parser(private val tokens: List<Token>) {
                 val expList = expectExplist()
                 expectToken(TokenType.CLOSE_PARENTHESIS)
 
-                previous.add(createFunctionStatement(current, expList))
-                return tryStuff(current, previous)
+                return createFunctionStatement(previous, previous, expList)
             }
             // args ::=  tableconstructor
             TokenType.OPEN_BRACE -> {
@@ -628,29 +634,34 @@ class Parser(private val tokens: List<Token>) {
             // args ::=  LiteralString
             TokenType.STRING -> {
                 val str = expectToken(TokenType.STRING)
-                previous.add(createFunctionStatement(current, LiteralString(str.value)))
-                return tryStuff(current, previous)
+                previous.add(createFunctionStatement(current, previous, LiteralString(str.value)))
+                return constructStatement(current, previous)
             }
             // varlist ::= var {‘,’ var}
             TokenType.COMMA -> {
                 expectToken(TokenType.COMMA)
-                return tryStuff(current, previous)
+                return constructStatement(current, previous)
             }
             // var ::=  prefixexp ‘[’ exp ‘]’
             TokenType.OPEN_BRACKET -> {
                 expectToken(TokenType.OPEN_BRACKET)
                 val exp = expectExp()
                 expectToken(TokenType.CLOSE_BRACKET)
-                val prefixexp = current.last() as PrefixExpression
-                current.removeAt(current.size - 1)
+                val prefixexp = previous.last() as PrefixExpression
+                previous.removeLast()
 
                 // TODO: si je get last de stack, je dois avoir une VarList ou Var ?
                 previous.add(IndexVarExpression(prefixexp, exp))
-                return tryStuff(current, previous)
+                return constructStatement(current, previous)
             }
             // var ::= prefixexp ‘.’ Name
             TokenType.DOT -> {
-                TODO()
+                expectToken(TokenType.DOT)
+                val name = expectToken(TokenType.IDENTIFIER)
+                val prefixexp = previous.last() as PrefixExpression
+                previous.removeLast()
+                previous.add(FieldVarExpression(prefixexp, StrName(name.value)))
+                return constructStatement(current, previous)
             }
             // var ::=  Name
             TokenType.IDENTIFIER -> {
@@ -659,12 +670,12 @@ class Parser(private val tokens: List<Token>) {
                 when(val last = previous.lastOrNull()) {
                     is Var -> {
                         // replace var with varlist
-                        previous.removeAt(previous.size - 1)
+                        previous.removeLast()
                         previous.add(VarList(listOf(last, nameVar)))
                     }
                     is VarList -> {
                         // append to var list
-                        previous.removeAt(previous.size - 1)
+                        previous.removeLast()
                         previous.add(VarList(last.varList + nameVar))
                     }
                     else -> {
@@ -673,7 +684,7 @@ class Parser(private val tokens: List<Token>) {
                     }
                 }
 
-                return tryStuff(previous = previous)
+                return constructStatement(current = current, previous = previous)
             }
             // varlist ‘=’ explist |
             TokenType.ASSIGN -> {
@@ -694,16 +705,5 @@ class Parser(private val tokens: List<Token>) {
                 TODO("${currentToken().type} is not expected.}")
             }
         }
-
-        // derrière, je peux avoir
-        // - ( -> args
-        // - { -> args
-        // - " -> args
-        // - , -> varlist
-        // - [ -> var
-        // - . -> var
-
-        // TODO: while , -> refaire pareil
-
     }
 }
