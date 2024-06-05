@@ -145,4 +145,26 @@ class ParserTest {
         val ast = parser.parse()
         ast.print()
     }
+
+    @Test
+    fun testAsign() {
+        val input = """a = 3"""
+        val lexer = Lexer(input)
+        val tokens = lexer.tokenize()
+        val parser = Parser(tokens)
+        val ast = parser.parse()
+        ast.print()
+    }
+
+    @Test
+    fun testMultipleAsign() {
+        val input = """a, b = 3, 2"""
+        val lexer = Lexer(input)
+        val tokens = lexer.tokenize()
+        val parser = Parser(tokens)
+        val ast = parser.parse()
+        ast.print()
+    }
+
+
 }

@@ -1,57 +1,56 @@
-
-sealed class Name: ASTNode
+sealed class Name : ASTNode
 
 data class StrName(val value: String) : Name() {
     override fun toString(): String = value
 }
+
 data object EmptyName : Name()
 
 
 // prefixexp ::= var | functioncall | ‘(’ exp ‘)’
-sealed interface PrefixExpression
+sealed interface PrefixExpression : ASTNode
 
 // args ::=  ‘(’ [explist] ‘)’ | tableconstructor | LiteralString
-sealed interface Args: ASTNode
+sealed interface Args : ASTNode
 
 
 // explist ::= exp {‘,’ exp}
 class ExpList(val expList: List<Exp>) : Args
 
 // varlist ::= var {‘,’ var}
-class VarList(val varList: List<Var>)
+class VarList(val varList: List<Var>) : ASTNode
 
 // namelist ::= Name {‘,’ Name}
-class NameList(val nameList: List<Name>): ASTNode
+class NameList(val nameList: List<Name>) : ASTNode
 
 // attrib ::= [‘<’ Name ‘>’]
 sealed class Attrib(val name: Name)
 data object EmptyAttrib : Attrib(name = EmptyName)
 
 // functioncall ::=  prefixexp args | prefixexp ‘:’ Name args
-sealed interface Function : PrefixExpression, Statement {
-    // prefixexp args
-    class FunctionCall(prefixexp: PrefixExpression, args: Args) : Function
+sealed interface Function : PrefixExpression, Statement
 
-    // prefixexp ‘:’ Name args
-    class MethodCall(prefixexp: PrefixExpression, name: Name, args: Args) : Function
-}
+// prefixexp args
+class FunctionCall(prefixexp: PrefixExpression, args: Args) : Function
+
+// prefixexp ‘:’ Name args
+class MethodCall(prefixexp: PrefixExpression, name: Name, args: Args) : Function
 
 // var ::=  Name | prefixexp ‘[’ exp ‘]’ | prefixexp ‘.’ Name
-sealed class Var : PrefixExpression {
-    inner class NameVarExpression(val name: String) : Var()
-    inner class IndexVarExpression(val prefixexp: PrefixExpression, exp: Exp) : Var()
-    inner class FieldVarExpression(val prefixexp: PrefixExpression, val name: String) : Var()
-}
+sealed interface Var : PrefixExpression, Statement
+class NameVarExpression(val name: String) : Var
+class IndexVarExpression(val prefixexp: PrefixExpression, val exp: Exp) : Var
+class FieldVarExpression(val prefixexp: PrefixExpression, val name: Name) : Var
 
 // exp ::=  nil | false | true | Numeral | LiteralString | ‘...’ | functiondef |
 //		 prefixexp | tableconstructor | exp binop exp | unop exp
-sealed interface Exp : ASTNode
+sealed interface Exp : PrefixExpression, Statement
 
 data object Nil : Exp
 data object False : Exp
 data object True : Exp
 data class Numeral(val number: String) : Exp
-data class LiteralString(val string: String) : Exp
+data class LiteralString(val string: String) : Exp, Args
 
 // chunk ::= block
 data class Chunk(val block: Block) : ASTNode
@@ -80,7 +79,7 @@ data class FunctionDef(val name: Funcname, val body: Funcbody) : Statement
 class Funcname(val root: Name, val children: List<Name>, val method: Name?) : ASTNode
 
 // funcbody ::= ‘(’ [parlist] ‘)’ block end
-class Funcbody(val args: Parlist?, val block: Block): ASTNode
+class Funcbody(val args: Parlist?, val block: Block) : ASTNode
 
 /**
  * stat ::=  ‘;’ |

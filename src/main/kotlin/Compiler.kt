@@ -1,6 +1,6 @@
 class Compiler {
 
-    fun compile(chunk: Chunk) {
-
+    fun compile(chunk: Chunk): ByteArray {
+TODO()
     }
 }

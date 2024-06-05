@@ -28,7 +28,11 @@ sealed interface ASTNode {
             }
 
             Nop -> println("$prefix$connector ;")
-            is Assignment -> TODO()
+            is Assignment -> {
+                println("$prefix$connector =")
+                node.varlist.print(prefix + childPrefix, false)
+                node.explist.print(prefix + childPrefix, true)
+            }
             is AttNameList -> TODO()
             Break -> TODO()
             is Do -> TODO()
@@ -56,6 +60,7 @@ sealed interface ASTNode {
                 }
                 node.method?.print(prefix + childPrefix, true)
             }
+
             is Goto -> println("$prefix$connector Goto(${node.name})")
             is If -> {
                 println("$prefix$connector If")
@@ -108,18 +113,39 @@ sealed interface ASTNode {
                 node.args?.print(prefix + childPrefix, false)
                 node.block.print(prefix + childPrefix, true)
             }
+
             is FunctionDef -> {
                 println("$prefix$connector FunctionDef")
                 node.name.print(prefix + childPrefix, false, "Name")
                 node.body.print(prefix + childPrefix, true, "Body")
             }
-            is Function.FunctionCall -> TODO()
-            is Function.MethodCall -> TODO()
+
+            is FunctionCall -> TODO()
+            is MethodCall -> TODO()
             is ParNamelist -> {
                 node.namelist.nameList.forEachAndLast { n, isLast ->
                     n.print(prefix + childPrefix, isLast && node.vargs == null)
                 }
                 node.vargs?.print(prefix + childPrefix, true)
+            }
+
+            is FieldVarExpression -> {
+                println("$prefix$connector IndexVarExpression")
+                node.prefixexp.print(prefix + childPrefix, false)
+                node.name.print(prefix + childPrefix, true)
+            }
+            is IndexVarExpression -> {
+                println("$prefix$connector IndexVarExpression")
+                node.prefixexp.print(prefix + childPrefix, false)
+                node.exp.print(prefix + childPrefix, true)
+            }
+            is NameVarExpression -> {
+                println("$prefix$connector NameVarExpression(${node.name})")
+            }
+            is VarList -> {
+                node.varList.forEachAndLast { n, isLast ->
+                    n.print(prefix + childPrefix, isLast)
+                }
             }
         }
     }
@@ -132,7 +158,7 @@ sealed interface ASTNode {
     }
 }
 
-class SyntaxException( message: String, val line: Int, val column: Int) : RuntimeException(message)
+class SyntaxException(message: String, val line: Int, val column: Int) : RuntimeException(message)
 class Parser(private val tokens: List<Token>) {
     private var position = 0
 
@@ -144,11 +170,13 @@ class Parser(private val tokens: List<Token>) {
 
     private fun expectToken(type: TokenType): Token {
         val token = currentToken()
-        if (token.type != type) throw SyntaxException(
-            "Expected token $type but found ${token.type}. Line: ${token.line}, Column: ${token.column}",
-            token.line,
-            token.column
-        )
+        if (token.type != type) {
+            throw SyntaxException(
+                "Expected token $type but found ${token.type}. Line: ${token.line}, Column: ${token.column}",
+                token.line,
+                token.column
+            )
+        }
         nextToken()
         return token
     }
@@ -163,29 +191,85 @@ class Parser(private val tokens: List<Token>) {
     fun expectExp(): Exp {
         val token = currentToken()
         return when (token.type) {
-            TokenType.NIL -> Nil
-            TokenType.FALSE -> False
-            TokenType.TRUE -> True
-            TokenType.NUMBER -> Numeral(token.value)
-            TokenType.STRING -> LiteralString(token.value)
-            TokenType.VARARGS -> ParVarArgs
-            else -> TODO("${token.type} with ${token.value} is not supported yet")
-        }.also {
-            nextToken()
+            TokenType.NIL -> {
+                expectToken(TokenType.NIL)
+                Nil
+            }
+
+            TokenType.FALSE -> {
+                expectToken(TokenType.FALSE)
+                False
+            }
+
+            TokenType.TRUE -> {
+
+                expectToken(TokenType.TRUE)
+                True
+            }
+
+            TokenType.NUMBER -> {
+                expectToken(TokenType.NUMBER)
+                Numeral(token.value)
+            }
+
+            TokenType.STRING -> {
+                expectToken(TokenType.STRING)
+                LiteralString(token.value)
+            }
+
+            TokenType.VARARGS -> {
+                expectToken(TokenType.VARARGS)
+                ParVarArgs
+            }
+
+            TokenType.OPEN_PARENTHESIS -> {
+                expectToken(TokenType.OPEN_PARENTHESIS)
+                val exp = expectExp()
+                expectToken(TokenType.CLOSE_PARENTHESIS)
+                exp
+            }
+
+            // functiondef | prefixexp | tableconstructor | exp binop exp | unop exp
+            else -> {
+                TODO("${token.type} with ${token.value} is not supported yet")
+            }
         }
     }
 
+    /**
+     *
+     * block ::= {stat} [retstat]
+     *
+     * stat ::=  ‘;’ |
+     * 		 varlist ‘=’ explist |
+     * 		 functioncall |
+     * 		 label |
+     * 		 break |
+     * 		 goto Name |
+     * 		 do block end |
+     * 		 while exp do block end |
+     * 		 repeat block until exp |
+     * 		 if exp then block {elseif exp then block} [else block] end |
+     * 		 for Name ‘=’ exp ‘,’ exp [‘,’ exp] do block end |
+     * 		 for namelist in explist do block end |
+     * 		 function funcname funcbody |
+     * 		 local function Name funcbody |
+     * 		 local attnamelist [‘=’ explist]
+     */
     fun expectBlock(): Block {
         val statements = mutableListOf<Statement>()
         while (true) {
             val token = currentToken()
             val statement = when (token.type) {
+
                 TokenType.BREAK -> {
+                    // break |
                     expectToken(TokenType.BREAK)
                     Break
                 }
 
                 TokenType.DO -> {
+                    // do block end |
                     expectToken(TokenType.DO)
                     val block = expectBlock()
                     expectToken(TokenType.END)
@@ -236,6 +320,7 @@ class Parser(private val tokens: List<Token>) {
                 }
 
                 TokenType.GOTO -> {
+                    // goto Name |
                     expectToken(TokenType.GOTO)
                     val id = expectToken(TokenType.IDENTIFIER)
                     Goto(StrName(id.value))
@@ -266,20 +351,21 @@ class Parser(private val tokens: List<Token>) {
                 }
 
                 TokenType.LOCAL -> {
-                    // local function Name funcbody |
-                    //	local attnamelist [‘=’ explist]
                     expectToken(TokenType.LOCAL)
                     if (currentToken().type == TokenType.FUNCTION) {
+                        // local function Name funcbody |
                         expectToken(TokenType.FUNCTION)
                         val name = expectToken(TokenType.IDENTIFIER)
                         val funcbody = expectFuncbody()
                         TODO()
                     } else {
+                        //	local attnamelist [‘=’ explist]
                         TODO()
                     }
                 }
 
                 TokenType.REPEAT -> {
+                    // repeat block until exp |
                     expectToken(TokenType.REPEAT)
                     val block = expectBlock()
                     expectToken(TokenType.UNTIL)
@@ -288,11 +374,13 @@ class Parser(private val tokens: List<Token>) {
                 }
 
                 TokenType.RETURN -> {
+                    // retstat ::= return [explist] [‘;’]
                     val expList = expectExplist()
                     Retstat(expList)
                 }
 
                 TokenType.WHILE -> {
+                    // while exp do block end
                     expectToken(TokenType.WHILE)
                     val exp = expectExp()
                     expectToken(TokenType.DO)
@@ -302,6 +390,7 @@ class Parser(private val tokens: List<Token>) {
                 }
 
                 TokenType.DOUBLE_COLON -> {
+                    // label
                     expectToken(TokenType.DOUBLE_COLON)
                     val id = expectToken(TokenType.IDENTIFIER)
                     expectToken(TokenType.DOUBLE_COLON)
@@ -309,11 +398,17 @@ class Parser(private val tokens: List<Token>) {
                 }
 
                 TokenType.SEMICOLON -> {
+                    // ‘;’
                     expectToken(TokenType.SEMICOLON)
                     Nop
                 }
+                TokenType.EOF -> null
+                else -> tryStuff()
 
-                else -> null
+                /**
+                 * var -> ID ou prefix
+                 * functioncall -> ID ou ID. ou ID[ ou (
+                 */
             }
 
             when (statement) {
@@ -322,6 +417,93 @@ class Parser(private val tokens: List<Token>) {
                 else -> return Block(statements)
             }
         }
+    }
+
+    private val nameLimiter = setOf(
+        TokenType.OPEN_PARENTHESIS,
+        TokenType.OPEN_BRACKET,
+        TokenType.OPEN_BRACE,
+        TokenType.STRING,
+        TokenType.DOUBLE_COLON,
+        TokenType.DOT
+    )
+
+    private fun tryNameVar(): NameVarExpression? {
+        return if (currentToken().type == TokenType.IDENTIFIER && !nameLimiter.contains(peekToken().type)) {
+            val name = expectToken(TokenType.IDENTIFIER)
+            NameVarExpression(name.value)
+        } else {
+            null
+        }
+    }
+
+    // ‘(’ exp ‘)’
+    private fun tryExpInParenthesis(): Exp? {
+        if (currentToken().type != TokenType.OPEN_PARENTHESIS) {
+            return null
+        }
+        expectToken(TokenType.OPEN_PARENTHESIS)
+        val exp = expectExp()
+        expectToken(TokenType.CLOSE_PARENTHESIS)
+        return exp
+    }
+
+    // prefixexp ::= var | functioncall | ‘(’ exp ‘)’
+    private fun tryPrefixexpWithoutVar(): PrefixExpression? {
+        return tryFunctionCall() ?: tryExpInParenthesis()
+    }
+
+    // prefixexp ‘[’ exp ‘]’
+    // FIXME: ça va pas marcher. je devrais tryPrefix et selon [ ou (, faire un autre call
+    private fun tryIndexVar(): IndexVarExpression? {
+        val prefixexp = tryPrefixexpWithoutVar() ?: return null
+        expectToken(TokenType.OPEN_BRACKET)
+        val exp = expectExp()
+        expectToken(TokenType.CLOSE_BRACKET)
+        return IndexVarExpression(prefixexp, exp)
+    }
+
+    //  prefixexp ‘.’ Name
+    private fun tryFieldVar(): FieldVarExpression? {
+        val prefixexp = tryPrefixexpWithoutVar() ?: return null
+        expectToken(TokenType.DOT)
+        val name = expectToken(TokenType.IDENTIFIER)
+        return FieldVarExpression(prefixexp, StrName(name.value))
+    }
+
+    // var ::=  Name | prefixexp ‘[’ exp ‘]’ | prefixexp ‘.’ Name
+    private fun tryVar(): Var? {
+        return tryNameVar() ?: tryIndexVar() ?: tryFieldVar()
+    }
+
+    private fun expectVar(): Var {
+        return tryVar()!!
+    }
+
+    // varlist ::= var {‘,’ var}
+    private fun tryVarList(): VarList? {
+        val v = tryVar() ?: return null
+
+        val result = mutableListOf(v)
+        while (currentToken().type == TokenType.COMMA) {
+            expectToken(TokenType.COMMA)
+            result.add(expectVar())
+        }
+        return VarList(result)
+    }
+
+    // varlist ‘=’ explist
+    private fun tryAssigment(): Assignment? {
+        val varlist = tryVarList() ?: return null
+        expectToken(TokenType.ASSIGN)
+        val expList = expectExplist()
+        return Assignment(varlist, expList)
+    }
+
+    // functioncall ::=  prefixexp args | prefixexp ‘:’ Name args
+    // --> prefixexp ::= Name | prefixexp ‘[’ exp ‘]’ | prefixexp ‘.’ Name | prefixexp args | prefixexp ‘:’ Name args | ‘(’ exp ‘)’
+    private fun tryFunctionCall(): Function? {
+        TODO()
     }
 
 
@@ -349,8 +531,8 @@ class Parser(private val tokens: List<Token>) {
     // funcbody ::= ‘(’ [parlist] ‘)’ block end
     private fun expectFuncbody(): Funcbody {
         expectToken(TokenType.OPEN_PARENTHESIS)
-        val parList = if(currentToken().type != TokenType.CLOSE_PARENTHESIS) {
-             expectParList()
+        val parList = if (currentToken().type != TokenType.CLOSE_PARENTHESIS) {
+            expectParList()
         } else {
             null
         }
@@ -377,8 +559,15 @@ class Parser(private val tokens: List<Token>) {
         }
     }
 
+    // explist ::= exp {‘,’ exp}
     private fun expectExplist(): ExpList {
-        TODO()
+        val head = expectExp()
+        val result = mutableListOf(head)
+        while (currentToken().type == TokenType.COMMA) {
+            expectToken(TokenType.COMMA)
+            result.add(expectExp())
+        }
+        return ExpList(result)
     }
 
     // namelist ::= Name {‘,’ Name}
@@ -392,4 +581,129 @@ class Parser(private val tokens: List<Token>) {
         return NameList(listOf(first) + tail)
     }
 
+
+    private fun tryStuff(
+        current: MutableList<ASTNode> = mutableListOf(),
+        previous: MutableList<ASTNode> = mutableListOf()
+    ): Statement {
+        fun createFunctionStatement(
+            stack: MutableList<ASTNode>,
+            args: Args
+        ): Statement {
+            return when (val prev = stack.last()) {
+                is PrefixExpression -> {
+                    stack.removeAt(stack.size - 1)
+                    FunctionCall(prev, args)
+                }
+
+                is Name -> {
+                    val prefix = stack[stack.size - 1] as PrefixExpression
+                    stack.removeAt(stack.size - 2)
+                    stack.removeAt(stack.size - 1)
+                    MethodCall(prefix, prev, args)
+                }
+
+                else -> TODO() // ne correspond pas au pattern
+            }
+        }
+
+        when (currentToken().type) {
+            // args ::=  ‘(’ [explist] ‘)’
+            TokenType.OPEN_PARENTHESIS -> {
+                expectToken(TokenType.OPEN_PARENTHESIS)
+                val expList = expectExplist()
+                expectToken(TokenType.CLOSE_PARENTHESIS)
+
+                previous.add(createFunctionStatement(current, expList))
+                return tryStuff(current, previous)
+            }
+            // args ::=  tableconstructor
+            TokenType.OPEN_BRACE -> {
+                expectToken(TokenType.OPEN_BRACE)
+                TODO()
+                // expectToken(TokenType.CLOSE_BRACE)
+                // createFunctionStatement(stack, statements, expList)
+                // return tryStuff(emptyList(), statements)
+            }
+            // args ::=  LiteralString
+            TokenType.STRING -> {
+                val str = expectToken(TokenType.STRING)
+                previous.add(createFunctionStatement(current, LiteralString(str.value)))
+                return tryStuff(current, previous)
+            }
+            // varlist ::= var {‘,’ var}
+            TokenType.COMMA -> {
+                expectToken(TokenType.COMMA)
+                return tryStuff(current, previous)
+            }
+            // var ::=  prefixexp ‘[’ exp ‘]’
+            TokenType.OPEN_BRACKET -> {
+                expectToken(TokenType.OPEN_BRACKET)
+                val exp = expectExp()
+                expectToken(TokenType.CLOSE_BRACKET)
+                val prefixexp = current.last() as PrefixExpression
+                current.removeAt(current.size - 1)
+
+                // TODO: si je get last de stack, je dois avoir une VarList ou Var ?
+                previous.add(IndexVarExpression(prefixexp, exp))
+                return tryStuff(current, previous)
+            }
+            // var ::= prefixexp ‘.’ Name
+            TokenType.DOT -> {
+                TODO()
+            }
+            // var ::=  Name
+            TokenType.IDENTIFIER -> {
+                val name = expectToken(TokenType.IDENTIFIER)
+                val nameVar = NameVarExpression(name.value)
+                when(val last = previous.lastOrNull()) {
+                    is Var -> {
+                        // replace var with varlist
+                        previous.removeAt(previous.size - 1)
+                        previous.add(VarList(listOf(last, nameVar)))
+                    }
+                    is VarList -> {
+                        // append to var list
+                        previous.removeAt(previous.size - 1)
+                        previous.add(VarList(last.varList + nameVar))
+                    }
+                    else -> {
+                        // create var
+                        previous.add(nameVar)
+                    }
+                }
+
+                return tryStuff(previous = previous)
+            }
+            // varlist ‘=’ explist |
+            TokenType.ASSIGN -> {
+                expectToken(TokenType.ASSIGN)
+                when(val prev = previous.last()) {
+                    is Var -> {
+                        val expList = expectExplist()
+                        return Assignment(VarList(listOf(prev)), expList)
+                    }
+                    is VarList -> {
+                        val expList = expectExplist()
+                        return Assignment(prev, expList)
+                    }
+                    else -> TODO()
+                }
+            }
+            else -> {
+                TODO("${currentToken().type} is not expected.}")
+            }
+        }
+
+        // derrière, je peux avoir
+        // - ( -> args
+        // - { -> args
+        // - " -> args
+        // - , -> varlist
+        // - [ -> var
+        // - . -> var
+
+        // TODO: while , -> refaire pareil
+
+    }
 }
