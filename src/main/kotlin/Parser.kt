@@ -33,6 +33,7 @@ sealed interface ASTNode {
                 node.varlist.print(prefix + childPrefix, false)
                 node.explist.print(prefix + childPrefix, true)
             }
+
             is AttNameList -> TODO()
             Break -> TODO()
             is Do -> TODO()
@@ -114,7 +115,7 @@ sealed interface ASTNode {
                 node.block.print(prefix + childPrefix, true)
             }
 
-            is FunctionDef -> {
+            is FunctionDefinition -> {
                 println("$prefix$connector FunctionDef")
                 node.name.print(prefix + childPrefix, false, "Name")
                 node.body.print(prefix + childPrefix, true, "Body")
@@ -125,6 +126,7 @@ sealed interface ASTNode {
                 node.prefixexp.print(prefix + childPrefix, false)
                 node.args.print(prefix + childPrefix, true)
             }
+
             is MethodCall -> TODO()
             is ParNamelist -> {
                 node.namelist.nameList.forEachAndLast { n, isLast ->
@@ -138,19 +140,27 @@ sealed interface ASTNode {
                 node.prefixexp.print(prefix + childPrefix, false)
                 node.name.print(prefix + childPrefix, true)
             }
+
             is IndexVarExpression -> {
                 println("$prefix$connector IndexVarExpression")
                 node.prefixexp.print(prefix + childPrefix, false)
                 node.exp.print(prefix + childPrefix, true)
             }
+
             is NameVarExpression -> {
                 println("$prefix$connector NameVarExpression(${node.name})")
             }
+
             is VarList -> {
                 node.varList.forEachAndLast { n, isLast ->
                     n.print(prefix + childPrefix, isLast)
                 }
             }
+
+            is FunctionDef -> TODO()
+            is UnopExp -> TODO()
+            is Unop -> TODO()
+            is PrefixExp -> TODO()
         }
     }
 
@@ -226,6 +236,7 @@ class Parser(private val tokens: List<Token>) {
                 ParVarArgs
             }
 
+            // ‘(’ exp ‘)’
             TokenType.OPEN_PARENTHESIS -> {
                 expectToken(TokenType.OPEN_PARENTHESIS)
                 val exp = expectExp()
@@ -233,10 +244,83 @@ class Parser(private val tokens: List<Token>) {
                 exp
             }
 
-            // functiondef | prefixexp | tableconstructor | exp binop exp | unop exp
+            // functiondef ::= function funcbody
+            TokenType.FUNCTION -> {
+                expectToken(TokenType.FUNCTION)
+                val body = expectFuncbody()
+                FunctionDef(body)
+            }
+
+            // tableconstructor
+            TokenType.OPEN_BRACE -> {
+                TODO()
+            }
+            // unop exp
+            TokenType.MINUS -> {
+                expectToken(TokenType.MINUS)
+                val exp = expectExp()
+                UnopExp(Unop(TokenType.MINUS), exp)
+            }
+            // unop exp
+            TokenType.NOT -> {
+                expectToken(TokenType.NOT)
+                val exp = expectExp()
+                UnopExp(Unop(TokenType.NOT), exp)
+            }
+            // unop exp
+            TokenType.LENGTH -> {
+                expectToken(TokenType.LENGTH)
+                val exp = expectExp()
+                UnopExp(Unop(TokenType.LENGTH), exp)
+            }
+            // unop exp
+            TokenType.BITWISE_NOT -> {
+                expectToken(TokenType.BITWISE_NOT)
+                val exp = expectExp()
+                UnopExp(Unop(TokenType.BITWISE_NOT), exp)
+            }
+
+            // prefixexp
+            TokenType.IDENTIFIER -> {
+                PrefixExp(expectPrefixexp())
+            }
+            // prefixexp | tableconstructor | exp binop exp | unop exp
             else -> {
                 TODO("${token.type} with ${token.value} is not supported yet")
             }
+        }
+    }
+
+    private fun expectPrefixexp(previous: MutableList<ASTNode> = mutableListOf()): PrefixExpression {
+        return when (val token = currentToken().type) {
+            TokenType.IDENTIFIER -> {
+                val name = expectToken(TokenType.IDENTIFIER)
+                previous.add(NameVarExpression(name.value))
+                expectPrefixexp(previous)
+            }
+
+            TokenType.OPEN_BRACKET -> {
+                expectToken(TokenType.OPEN_BRACKET)
+                val exp = expectExp()
+                expectToken(TokenType.CLOSE_BRACKET)
+                val prev = previous.last() as PrefixExpression
+                IndexVarExpression(prev, exp).also {
+                    previous.add(it)
+                }
+                expectPrefixexp(previous)
+            }
+
+            TokenType.DOT -> {
+                expectToken(TokenType.DOT)
+                val name = expectToken(TokenType.IDENTIFIER)
+                val prev = previous.last() as PrefixExpression
+                FieldVarExpression(prev, StrName(name.value)).also {
+                    previous.add(it)
+                }
+                expectPrefixexp(previous)
+            }
+
+            else -> previous.last() as? PrefixExpression ?: TODO("$token not expected")
         }
     }
 
@@ -320,7 +404,7 @@ class Parser(private val tokens: List<Token>) {
                     expectToken(TokenType.FUNCTION)
                     val funcname = expectFuncname()
                     val funcbody = expectFuncbody()
-                    FunctionDef(funcname, funcbody)
+                    FunctionDefinition(funcname, funcbody)
                 }
 
                 TokenType.GOTO -> {
@@ -408,12 +492,10 @@ class Parser(private val tokens: List<Token>) {
                 }
 
                 /**
-                 * var -> ID ou prefix
-                 * functioncall -> ID ou ID. ou ID[ ou (
+                 * varlist or functioncall
                  */
-                TokenType.OPEN_PARENTHESIS,
-                TokenType.OPEN_BRACKET,
-                TokenType.IDENTIFIER -> constructStatement()
+                TokenType.OPEN_PARENTHESIS, TokenType.IDENTIFIER -> constructStatement()
+
                 else -> null
             }
 
@@ -496,14 +578,6 @@ class Parser(private val tokens: List<Token>) {
             result.add(expectVar())
         }
         return VarList(result)
-    }
-
-    // varlist ‘=’ explist
-    private fun tryAssigment(): Assignment? {
-        val varlist = tryVarList() ?: return null
-        expectToken(TokenType.ASSIGN)
-        val expList = expectExplist()
-        return Assignment(varlist, expList)
     }
 
     // functioncall ::=  prefixexp args | prefixexp ‘:’ Name args
@@ -589,13 +663,10 @@ class Parser(private val tokens: List<Token>) {
 
 
     private fun constructStatement(
-        current: MutableList<ASTNode> = mutableListOf(),
-        previous: MutableList<ASTNode> = mutableListOf()
+        current: MutableList<ASTNode> = mutableListOf(), previous: MutableList<ASTNode> = mutableListOf()
     ): Statement {
         fun createFunctionStatement(
-            stack: MutableList<ASTNode>,
-            previous: MutableList<ASTNode>,
-            args: Args
+            stack: MutableList<ASTNode>, previous: MutableList<ASTNode>, args: Args
         ): Statement {
             return when (val prev = stack.last()) {
                 is PrefixExpression -> {
@@ -667,17 +738,19 @@ class Parser(private val tokens: List<Token>) {
             TokenType.IDENTIFIER -> {
                 val name = expectToken(TokenType.IDENTIFIER)
                 val nameVar = NameVarExpression(name.value)
-                when(val last = previous.lastOrNull()) {
+                when (val last = previous.lastOrNull()) {
                     is Var -> {
                         // replace var with varlist
                         previous.removeLast()
                         previous.add(VarList(listOf(last, nameVar)))
                     }
+
                     is VarList -> {
                         // append to var list
                         previous.removeLast()
                         previous.add(VarList(last.varList + nameVar))
                     }
+
                     else -> {
                         // create var
                         previous.add(nameVar)
@@ -689,18 +762,21 @@ class Parser(private val tokens: List<Token>) {
             // varlist ‘=’ explist |
             TokenType.ASSIGN -> {
                 expectToken(TokenType.ASSIGN)
-                when(val prev = previous.last()) {
+                when (val prev = previous.last()) {
                     is Var -> {
                         val expList = expectExplist()
                         return Assignment(VarList(listOf(prev)), expList)
                     }
+
                     is VarList -> {
                         val expList = expectExplist()
                         return Assignment(prev, expList)
                     }
+
                     else -> TODO()
                 }
             }
+
             else -> {
                 TODO("${currentToken().type} is not expected.}")
             }

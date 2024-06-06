@@ -1,6 +1,7 @@
 class Compiler {
 
     fun compile(chunk: Chunk): ByteArray {
-TODO()
+
+        return ByteArray(0)
     }
 }

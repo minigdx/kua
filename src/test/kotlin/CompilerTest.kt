@@ -42,7 +42,7 @@ class CompilerTest {
 
         val output = Compiler().compile(ast)
 
-        val expected = read("src/test/resources/all/all.bin")
+        val expected = read("src/test/resources/lua/all.bin")
         assertEquals(expected, output)
     }
 }

@@ -41,6 +41,7 @@ enum class TokenType {
     DOT,
     CONCAT,
     VARARGS,
+    COMMENT,
     EOF;
 
     companion object {
@@ -74,7 +75,7 @@ enum class TokenType {
             "then" to THEN,
             "true" to TRUE,
             "until" to UNTIL,
-            "while" to WHILE
+            "while" to WHILE,
         )
 
         private val SYMBOL_TO_TOKEN = mapOf(
@@ -110,7 +111,8 @@ enum class TokenType {
             "," to COMMA,
             "." to DOT,
             ".." to CONCAT,
-            "..." to VARARGS
+            "..." to VARARGS,
+            "--" to COMMENT,
         )
 
         val KEYWORDS = KEYWORD_TO_TOKEN.keys
@@ -127,10 +129,20 @@ enum class TokenType {
 
 data class Token(val type: TokenType, val value: String, val position: Int, val line: Int, val column: Int)
 
-class Lexer(private val input: String) {
+class Lexer(private val str: String) {
     private var position = 0
     private var line = 1
     private var column = 1
+    private val input = skipShellBang(str)
+
+    private fun skipShellBang(str: String): String {
+        if(str.startsWith("#!")) {
+            line++
+            return str.lines().drop(1).joinToString("\n")
+        } else {
+            return str
+        }
+    }
 
     private fun nextChar(): Char? {
         return if (position < input.length) {
@@ -166,12 +178,21 @@ class Lexer(private val input: String) {
                     tokens.add(Token(TokenType.NUMBER, value, start, line, column - value.length))
                 }
 
+                currentChar == '_' ||
                 currentChar.isLetter() -> {
                     val start = position - 1
                     while (peekChar()?.isLetterOrDigit() == true) nextChar()
                     val text = input.substring(start, position)
                     val type = TokenType.fromKeyword(text) ?: TokenType.IDENTIFIER
                     tokens.add(Token(type, text, start, line, column- text.length))
+                }
+
+                currentChar == '\'' -> {
+                    val start = position - 1
+                    while (peekChar() != '\'' && peekChar() != null) nextChar()
+                    nextChar() // consume closing quote
+                    val value = input.substring(start, position)
+                    tokens.add(Token(TokenType.STRING, value, start, line, column - value.length))
                 }
 
                 currentChar == '"' -> {
@@ -189,7 +210,11 @@ class Lexer(private val input: String) {
                         text += nextChar().toString()
                     }
 
-                    tokens.add(Token(TokenType.fromSymbol(text)!!, text, start, line, column - text.length))
+                    val type = TokenType.fromSymbol(text) ?: TODO("Symbol not found for $text. $line:$column")
+                    if(type == TokenType.COMMENT) {
+                        while(peekChar() != '\n') { text += nextChar().toString() }
+                    }
+                    tokens.add(Token(type, text, start, line, column - text.length))
                 }
             }
         }

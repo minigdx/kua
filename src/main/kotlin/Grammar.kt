@@ -46,11 +46,16 @@ class FieldVarExpression(val prefixexp: PrefixExpression, val name: Name) : Var
 //		 prefixexp | tableconstructor | exp binop exp | unop exp
 sealed interface Exp : PrefixExpression, Statement
 
+class PrefixExp(val prefixexp: PrefixExpression) : Exp
+
 data object Nil : Exp
 data object False : Exp
 data object True : Exp
 data class Numeral(val number: String) : Exp
 data class LiteralString(val string: String) : Exp, Args
+class UnopExp(val unop: Unop, val exp: Exp) : Exp
+
+class Unop(val token: TokenType) : ASTNode
 
 // chunk ::= block
 data class Chunk(val block: Block) : ASTNode
@@ -73,7 +78,9 @@ class ParNamelist(val namelist: NameList, var vargs: ParVarArgs?) : Parlist
 // ‘...’
 data object ParVarArgs : Parlist, Exp
 
-data class FunctionDef(val name: Funcname, val body: Funcbody) : Statement
+data class FunctionDefinition(val name: Funcname, val body: Funcbody) : Statement
+
+class FunctionDef(val body: Funcbody) : Exp
 
 // funcname ::= Name {‘.’ Name} [‘:’ Name]
 class Funcname(val root: Name, val children: List<Name>, val method: Name?) : ASTNode
