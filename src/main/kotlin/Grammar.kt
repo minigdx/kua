@@ -24,8 +24,7 @@ class VarList(val varList: List<Var>) : ASTNode
 class NameList(val nameList: List<Name>) : ASTNode
 
 // attrib ::= [‘<’ Name ‘>’]
-sealed class Attrib(val name: Name)
-data object EmptyAttrib : Attrib(name = EmptyName)
+class Attrib(val name: Name) : ASTNode
 
 // functioncall ::=  prefixexp args | prefixexp ‘:’ Name args
 sealed interface Function : PrefixExpression, Statement
@@ -150,13 +149,14 @@ data class Func(val funcname: Funcname, val funcbody: Funcbody) : Statement
 data class LocalFunc(val name: Name, val funcbody: Funcbody) : Statement
 
 // local attnamelist [‘=’ explist]
-data class LocalAssigment(val attnamelist: AttNameList, val explist: ExpList) : Statement
+data class LocalAssigment(val attnamelist: AttNameList, val explist: ExpList?) : Statement
 
 // varlist ‘=’ explist |
 class Assignment(val varlist: VarList, val explist: ExpList) : Statement
 
+class AttName(val name: Name, val attrib: Attrib?): ASTNode
 // attnamelist ::=  Name attrib {‘,’ Name attrib}
-class AttNameList(val name: Name, val attrib: Attrib, val others: List<Pair<Name, Attrib>>) : ASTNode
+class AttNameList(val attribs: List<AttName>) : ASTNode
 
 data class IdentifierNode(val name: String) : ASTNode
 data class BinaryOperationNode(val left: ASTNode, val operator: String, val right: ASTNode) : ASTNode

@@ -225,4 +225,14 @@ class ParserTest {
         val ast = parser.parse()
         ast.print()
     }
+
+    @Test
+    fun testLocalAssign() {
+        val input = """local a = 3.2"""
+        val lexer = Lexer(input)
+        val tokens = lexer.tokenize()
+        val parser = Parser(tokens)
+        val ast = parser.parse()
+        ast.print()
+    }
 }
