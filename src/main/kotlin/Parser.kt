@@ -88,7 +88,11 @@ sealed interface ASTNode {
                 node.attnamelist.print(prefix + childPrefix, node.explist == null)
                 node.explist?.print(prefix + childPrefix, true)
             }
-            is LocalFunc -> TODO()
+            is LocalFunc -> {
+                println("$prefix$connector LocalFunc")
+                node.name.print(prefix + childPrefix, false)
+                node.funcbody.print(prefix + childPrefix, true)
+            }
             is Repeat -> {
                 println("$prefix$connector Repeat Until")
                 node.block.print(prefix + childPrefix, false)
@@ -195,6 +199,7 @@ sealed interface ASTNode {
             }
 
             is Attrib -> {
+                println("$prefix$connector Attrib")
                 node.name.print(prefix + childPrefix, true)
             }
         }
@@ -530,7 +535,7 @@ class Parser(private val tokens: List<Token>) {
                         expectToken(TokenType.FUNCTION)
                         val name = expectToken(TokenType.IDENTIFIER)
                         val funcbody = expectFuncbody()
-                        TODO()
+                        LocalFunc(StrName(name.value), funcbody)
                     } else {
                         //	local attnamelist [‘=’ explist]
                         val attnamelist = expectAttNameList()

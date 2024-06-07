@@ -235,4 +235,24 @@ class ParserTest {
         val ast = parser.parse()
         ast.print()
     }
+
+    @Test
+    fun testLocalAssignWithAttrib() {
+        val input = """local a<read> = 3.2"""
+        val lexer = Lexer(input)
+        val tokens = lexer.tokenize()
+        val parser = Parser(tokens)
+        val ast = parser.parse()
+        ast.print()
+    }
+
+    @Test
+    fun testLocalFunction() {
+        val input = """local function a() end"""
+        val lexer = Lexer(input)
+        val tokens = lexer.tokenize()
+        val parser = Parser(tokens)
+        val ast = parser.parse()
+        ast.print()
+    }
 }

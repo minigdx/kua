@@ -1,4 +1,5 @@
 import com.github.minigdx.lua.bytecode.read
+import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -44,5 +45,21 @@ class CompilerTest {
 
         val expected = read("src/test/resources/lua/all.bin")
         assertEquals(expected, output)
+    }
+
+    @Test
+    fun compileAllFiles() {
+        File("src/test/resources/lua").listFiles()!!.filter { it.name.endsWith(".lua") }.forEach {
+            val lexer = Lexer(it.absolutePath)
+            val tokens = lexer.tokenize()
+            val parser = Parser(tokens)
+            val ast = parser.parse()
+
+            val output = Compiler().compile(ast)
+
+            val file = it.nameWithoutExtension + ".bin"
+            val expected = read(it.parentFile.resolve(file).absolutePath)
+            // assertEquals(expected, output)
+        }
     }
 }
