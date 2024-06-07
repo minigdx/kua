@@ -207,6 +207,16 @@ class ParserTest {
     }
 
     @Test
+    fun testTable() {
+        val input = """toto = {tata = "hello", [2] = 4, }"""
+        val lexer = Lexer(input)
+        val tokens = lexer.tokenize()
+        val parser = Parser(tokens)
+        val ast = parser.parse()
+        ast.print()
+    }
+
+    @Test
     fun testNumber() {
         val input = """a = 3.2"""
         val lexer = Lexer(input)

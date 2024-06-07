@@ -161,6 +161,23 @@ sealed interface ASTNode {
             is UnopExp -> TODO()
             is Unop -> TODO()
             is PrefixExp -> TODO()
+            is FieldList -> TODO()
+            is FieldByExp -> TODO()
+            is FieldByIndex -> {
+                println("$prefix$connector FieldByIndex")
+                node.index.print(prefix + childPrefix, false, "index")
+                node.value.print(prefix + childPrefix, true, "value")
+            }
+            is FieldByName -> {
+                println("$prefix$connector FieldByName")
+               node.name.print(prefix + childPrefix, false, "name")
+               node.value.print(prefix + childPrefix, true, "value")
+            }
+            is TableConstructor -> {
+                node.fieldList?.field?.forEachAndLast { n, isLast ->
+                    n.print(prefix + childPrefix, isLast)
+                }
+            }
         }
     }
 
@@ -253,7 +270,10 @@ class Parser(private val tokens: List<Token>) {
 
             // tableconstructor
             TokenType.OPEN_BRACE -> {
-                TODO()
+                expectToken(TokenType.OPEN_BRACE)
+                val fieldList = expectFieldList()
+                expectToken(TokenType.CLOSE_BRACE)
+                TableConstructor(fieldList)
             }
             // unop exp
             TokenType.MINUS -> {
@@ -289,6 +309,52 @@ class Parser(private val tokens: List<Token>) {
                 TODO("${token.type} with ${token.value} is not supported yet")
             }
         }
+    }
+
+    private fun expectField(): Field {
+        return when (currentToken().type) {
+            TokenType.OPEN_BRACKET -> {
+                expectToken(TokenType.OPEN_BRACKET)
+                val exp = expectExp()
+                expectToken(TokenType.CLOSE_BRACKET)
+                expectToken(TokenType.ASSIGN)
+                val exp2 = expectExp()
+                FieldByIndex(exp, exp2)
+            }
+
+            TokenType.IDENTIFIER -> {
+                val name = expectToken(TokenType.IDENTIFIER)
+                expectToken(TokenType.ASSIGN)
+                val exp = expectExp()
+                FieldByName(StrName(name.value), exp)
+            }
+
+            else -> FieldByExp(expectExp())
+        }
+    }
+
+    private fun expectFieldList(): FieldList {
+        val result = mutableListOf<Field>()
+        result.add(expectField())
+
+        var hasNext: Boolean
+        do {
+            hasNext = when (currentToken().type) {
+                TokenType.COMMA, TokenType.SEMICOLON -> {
+                    expectToken(currentToken().type)
+                    // si }, ne pas faire expectField, hasNext -> false
+                    if(currentToken().type == TokenType.CLOSE_BRACE) {
+                        false
+                    } else {
+                        result.add(expectField())
+                    }
+                }
+
+                else -> false
+            }
+        } while (hasNext)
+
+        return FieldList(result)
     }
 
     private fun expectPrefixexp(previous: MutableList<ASTNode> = mutableListOf()): PrefixExpression {
@@ -721,7 +787,6 @@ class Parser(private val tokens: List<Token>) {
                 val prefixexp = previous.last() as PrefixExpression
                 previous.removeLast()
 
-                // TODO: si je get last de stack, je dois avoir une VarList ou Var ?
                 previous.add(IndexVarExpression(prefixexp, exp))
                 return constructStatement(current, previous)
             }

@@ -55,6 +55,15 @@ data class Numeral(val number: String) : Exp
 data class LiteralString(val string: String) : Exp, Args
 class UnopExp(val unop: Unop, val exp: Exp) : Exp
 
+class TableConstructor(val fieldList: FieldList?) : Exp
+
+sealed interface Field : Exp
+class FieldByIndex(val index: Exp, val value: Exp) : Field
+class FieldByName(val name: Name, val value: Exp) : Field
+class FieldByExp(val exp: Exp) : Field
+
+class FieldList(val field: List<Field>) : ASTNode
+
 class Unop(val token: TokenType) : ASTNode
 
 // chunk ::= block
