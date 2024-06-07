@@ -1,219 +1,15 @@
-sealed interface ASTNode {
-    fun print(prefix: String = "", isTail: Boolean = true, name: String = "") {
-        val node = this
-        val connector = if (isTail) "└── $name" else "├── $name"
-        val childPrefix = if (isTail) "    " else "│   "
+import com.github.minigdx.lua.parser.Token
+import com.github.minigdx.lua.parser.TokenType
 
-
-        when (node) {
-            is Numeral -> println("$prefix$connector Number(${node.number})")
-            is LiteralString -> println("$prefix$connector String(${node.string})")
-            is IdentifierNode -> println("$prefix$connector Identifier(${node.name})")
-            is BinaryOperationNode -> {
-                println("$prefix$connector BinaryOperation(${node.operator})")
-                node.left.print(prefix + childPrefix, false)
-                node.right.print(prefix + childPrefix, true)
-            }
-
-            is Block -> {
-                println("$prefix$connector Block(${node.statements.size} statements):")
-                node.statements.forEachAndLast { it, isLast ->
-                    it.print(prefix + childPrefix, isLast)
-                }
-            }
-
-            is Chunk -> {
-                println("$prefix$connector Chunk:")
-                node.block.print(prefix + childPrefix, true)
-            }
-
-            Nop -> println("$prefix$connector ;")
-            is Assignment -> {
-                println("$prefix$connector =")
-                node.varlist.print(prefix + childPrefix, false)
-                node.explist.print(prefix + childPrefix, true)
-            }
-
-            is AttNameList -> {
-                node.attribs.forEachAndLast { attName, isLast ->
-                    attName.print(prefix + childPrefix, isLast)
-                }
-            }
-            Break -> TODO()
-            is Do -> TODO()
-            is For -> {
-                println("$prefix$connector For")
-                node.name.print(prefix + childPrefix, false, "Name:")
-                node.init.print(prefix + childPrefix, false, "Init:")
-                node.until.print(prefix + childPrefix, false, "Until:")
-                node.step?.print(prefix + childPrefix, false, "Step:")
-                node.block.print(prefix + childPrefix, true, "Block:")
-            }
-
-            is ForName -> {
-                println("$prefix$connector ForName")
-                node.names.print(prefix + childPrefix, false, "Name:")
-                node.explist.print(prefix + childPrefix, true, "Name:")
-            }
-
-            is Func -> TODO()
-            is Funcname -> {
-                println("$prefix$connector Funcname")
-                node.root.print(prefix + childPrefix, false)
-                node.children.forEachAndLast { it, isLast ->
-                    it.print(prefix + childPrefix, isLast && node.method == null)
-                }
-                node.method?.print(prefix + childPrefix, true)
-            }
-
-            is Goto -> println("$prefix$connector Goto(${node.name})")
-            is If -> {
-                println("$prefix$connector If")
-                val hasElseIf = node.elif.isNotEmpty()
-                val hasElse = node.or != null
-
-                node.exp.print(prefix + childPrefix, false, "Exp:")
-                node.block.print(prefix + childPrefix, !hasElseIf && !hasElse, "Block:")
-
-                node.elif.forEachAndLast { (exp, block), isLast ->
-                    exp.print(prefix + childPrefix, false, "(Elseif) Exp:")
-                    block.print(prefix + childPrefix, isLast && !hasElse, "(Elseif) Block:")
-                }
-
-                node.or?.print(prefix + childPrefix, true, "(Else) Block:")
-            }
-
-            is LocalAssigment -> {
-                println("$prefix$connector LocalAssigment")
-                node.attnamelist.print(prefix + childPrefix, node.explist == null)
-                node.explist?.print(prefix + childPrefix, true)
-            }
-            is LocalFunc -> {
-                println("$prefix$connector LocalFunc")
-                node.name.print(prefix + childPrefix, false)
-                node.funcbody.print(prefix + childPrefix, true)
-            }
-            is Repeat -> {
-                println("$prefix$connector Repeat Until")
-                node.block.print(prefix + childPrefix, false)
-                node.exp.print(prefix + childPrefix, true)
-            }
-
-            is Retstat -> TODO()
-            is While -> {
-                println("$prefix$connector While Do End")
-                node.exp.print(prefix + childPrefix, false)
-                node.block.print(prefix + childPrefix, true)
-            }
-
-            EmptyName -> TODO()
-            is StrName -> println("$prefix$connector ${node.value}")
-            is Label -> println("$prefix$connector Label(${node.name})")
-            False -> println("$prefix$connector False")
-            Nil -> println("$prefix$connector Nil")
-            ParVarArgs -> TODO()
-            True -> println("$prefix$connector True")
-            is NameList -> TODO()
-            is ExpList -> {
-                println("$prefix$connector ExpList")
-                node.expList.forEachAndLast { exp, isLast ->
-                    exp.print(prefix + childPrefix, isLast)
-                }
-            }
-
-            is Funcbody -> {
-                println("$prefix$connector Funcbody")
-                node.args?.print(prefix + childPrefix, false)
-                node.block.print(prefix + childPrefix, true)
-            }
-
-            is FunctionDefinition -> {
-                println("$prefix$connector FunctionDef")
-                node.name.print(prefix + childPrefix, false, "Name")
-                node.body.print(prefix + childPrefix, true, "Body")
-            }
-
-            is FunctionCall -> {
-                println("$prefix$connector FunctionCall")
-                node.prefixexp.print(prefix + childPrefix, false)
-                node.args.print(prefix + childPrefix, true)
-            }
-
-            is MethodCall -> TODO()
-            is ParNamelist -> {
-                node.namelist.nameList.forEachAndLast { n, isLast ->
-                    n.print(prefix + childPrefix, isLast && node.vargs == null)
-                }
-                node.vargs?.print(prefix + childPrefix, true)
-            }
-
-            is FieldVarExpression -> {
-                println("$prefix$connector IndexVarExpression")
-                node.prefixexp.print(prefix + childPrefix, false)
-                node.name.print(prefix + childPrefix, true)
-            }
-
-            is IndexVarExpression -> {
-                println("$prefix$connector IndexVarExpression")
-                node.prefixexp.print(prefix + childPrefix, false)
-                node.exp.print(prefix + childPrefix, true)
-            }
-
-            is NameVarExpression -> {
-                println("$prefix$connector NameVarExpression(${node.name})")
-            }
-
-            is VarList -> {
-                node.varList.forEachAndLast { n, isLast ->
-                    n.print(prefix + childPrefix, isLast)
-                }
-            }
-
-            is FunctionDef -> TODO()
-            is UnopExp -> TODO()
-            is Unop -> TODO()
-            is PrefixExp -> TODO()
-            is FieldList -> TODO()
-            is FieldByExp -> TODO()
-            is FieldByIndex -> {
-                println("$prefix$connector FieldByIndex")
-                node.index.print(prefix + childPrefix, false, "index")
-                node.value.print(prefix + childPrefix, true, "value")
-            }
-
-            is FieldByName -> {
-                println("$prefix$connector FieldByName")
-                node.name.print(prefix + childPrefix, false, "name")
-                node.value.print(prefix + childPrefix, true, "value")
-            }
-
-            is TableConstructor -> {
-                node.fieldList?.field?.forEachAndLast { n, isLast ->
-                    n.print(prefix + childPrefix, isLast)
-                }
-            }
-
-            is AttName -> {
-                node.name.print(prefix + childPrefix, node.attrib == null)
-                node.attrib?.print(prefix + childPrefix, true)
-            }
-
-            is Attrib -> {
-                println("$prefix$connector Attrib")
-                node.name.print(prefix + childPrefix, true)
-            }
-        }
-    }
-
-    private fun <T> List<T>.forEachAndLast(block: (T, Boolean) -> Unit) {
-        this.dropLast(1).forEach {
-            block(it, false)
-        }
-        this.lastOrNull()?.let { block(it, true) }
-    }
+class SyntaxException(message: String, val line: Int, val column: Int) : RuntimeException(message) {
+    constructor(currentToken: Token, expectedToken: TokenType): this(
+        "Expected token $expectedToken but found ${currentToken.type}. " +
+                "Line: ${currentToken.line}, Column: ${currentToken.column}",
+        currentToken.line,
+        currentToken.column
+    )
 }
 
-class SyntaxException(message: String, val line: Int, val column: Int) : RuntimeException(message)
 class Parser(private val tokens: List<Token>) {
     private var position = 0
 
@@ -226,18 +22,13 @@ class Parser(private val tokens: List<Token>) {
     private fun expectToken(type: TokenType): Token {
         val token = currentToken()
         if (token.type != type) {
-            throw SyntaxException(
-                "Expected token $type but found ${token.type}. Line: ${token.line}, Column: ${token.column}",
-                token.line,
-                token.column
-            )
+            throw SyntaxException(token, type)
         }
         nextToken()
         return token
     }
 
     fun parse(): Chunk {
-
         return Chunk(expectBlock())
     }
 
@@ -329,9 +120,10 @@ class Parser(private val tokens: List<Token>) {
                 PrefixExp(expectPrefixexp())
             }
             // prefixexp | tableconstructor | exp binop exp | unop exp
-            else -> {
-                TODO("${token.type} with ${token.value} is not supported yet")
-            }
+            else -> throw SyntaxException(
+                "${token.type} with ${token.value} is not supported yet",
+                token.line, token.column
+            )
         }
     }
 
@@ -350,7 +142,7 @@ class Parser(private val tokens: List<Token>) {
                 val name = expectToken(TokenType.IDENTIFIER)
                 expectToken(TokenType.ASSIGN)
                 val exp = expectExp()
-                FieldByName(StrName(name.value), exp)
+                FieldByName(Name(name.value), exp)
             }
 
             else -> FieldByExp(expectExp())
@@ -366,7 +158,7 @@ class Parser(private val tokens: List<Token>) {
             hasNext = when (currentToken().type) {
                 TokenType.COMMA, TokenType.SEMICOLON -> {
                     expectToken(currentToken().type)
-                    // si }, ne pas faire expectField, hasNext -> false
+                    // if the table is closed, there will not be a new field.
                     if (currentToken().type == TokenType.CLOSE_BRACE) {
                         false
                     } else {
@@ -382,7 +174,8 @@ class Parser(private val tokens: List<Token>) {
     }
 
     private fun expectPrefixexp(previous: MutableList<ASTNode> = mutableListOf()): PrefixExpression {
-        return when (val token = currentToken().type) {
+        val currentToken = currentToken()
+        return when (currentToken.type) {
             TokenType.IDENTIFIER -> {
                 val name = expectToken(TokenType.IDENTIFIER)
                 previous.add(NameVarExpression(name.value))
@@ -404,13 +197,16 @@ class Parser(private val tokens: List<Token>) {
                 expectToken(TokenType.DOT)
                 val name = expectToken(TokenType.IDENTIFIER)
                 val prev = previous.last() as PrefixExpression
-                FieldVarExpression(prev, StrName(name.value)).also {
+                FieldVarExpression(prev, Name(name.value)).also {
                     previous.add(it)
                 }
                 expectPrefixexp(previous)
             }
 
-            else -> previous.last() as? PrefixExpression ?: TODO("$token not expected")
+            else -> previous.last() as? PrefixExpression ?: throw SyntaxException(
+                "${currentToken.type} with ${currentToken.value} is not supported yet",
+                currentToken.line, currentToken.column
+            )
         }
     }
 
@@ -472,7 +268,7 @@ class Parser(private val tokens: List<Token>) {
                         expectToken(TokenType.DO)
                         val block = expectBlock()
                         expectToken(TokenType.END)
-                        For(StrName(name.value), init, until, step, block)
+                        For(Name(name.value), init, until, step, block)
                     } else {
                         val names = mutableListOf(name)
                         // for namelist in explist do block end |
@@ -485,7 +281,7 @@ class Parser(private val tokens: List<Token>) {
                         expectToken(TokenType.DO)
                         val block = expectBlock()
                         expectToken(TokenType.END)
-                        ForName(NameList(names.map { StrName(it.value) }), expList, block)
+                        ForName(NameList(names.map { Name(it.value) }), expList, block)
                     }
                 }
 
@@ -501,7 +297,7 @@ class Parser(private val tokens: List<Token>) {
                     // goto Name |
                     expectToken(TokenType.GOTO)
                     val id = expectToken(TokenType.IDENTIFIER)
-                    Goto(StrName(id.value))
+                    Goto(Name(id.value))
                 }
 
                 TokenType.IF -> {
@@ -535,7 +331,7 @@ class Parser(private val tokens: List<Token>) {
                         expectToken(TokenType.FUNCTION)
                         val name = expectToken(TokenType.IDENTIFIER)
                         val funcbody = expectFuncbody()
-                        LocalFunc(StrName(name.value), funcbody)
+                        LocalFunc(Name(name.value), funcbody)
                     } else {
                         //	local attnamelist [‘=’ explist]
                         val attnamelist = expectAttNameList()
@@ -579,7 +375,7 @@ class Parser(private val tokens: List<Token>) {
                     expectToken(TokenType.DOUBLE_COLON)
                     val id = expectToken(TokenType.IDENTIFIER)
                     expectToken(TokenType.DOUBLE_COLON)
-                    Label(StrName(id.value))
+                    Label(Name(id.value))
                 }
 
                 TokenType.SEMICOLON -> {
@@ -606,18 +402,18 @@ class Parser(private val tokens: List<Token>) {
 
     // funcname ::= Name {‘.’ Name} [‘:’ Name]
     private fun expectFuncname(): Funcname {
-        val id = StrName(expectToken(TokenType.IDENTIFIER).value)
+        val id = Name(expectToken(TokenType.IDENTIFIER).value)
 
         val children = mutableListOf<Name>()
         var nextToken = currentToken()
         while (nextToken.type == TokenType.DOT) {
             expectToken(TokenType.DOT)
-            children.add(StrName(expectToken(TokenType.IDENTIFIER).value))
+            children.add(Name(expectToken(TokenType.IDENTIFIER).value))
             nextToken = currentToken()
         }
         val method = if (currentToken().type == TokenType.DOUBLE_COLON) {
             expectToken(TokenType.DOUBLE_COLON)
-            StrName(expectToken(TokenType.IDENTIFIER).value)
+            Name(expectToken(TokenType.IDENTIFIER).value)
         } else {
             null
         }
@@ -669,11 +465,11 @@ class Parser(private val tokens: List<Token>) {
 
     // namelist ::= Name {‘,’ Name}
     private fun expectNamelist(): NameList {
-        val first = StrName(expectToken(TokenType.IDENTIFIER).value)
+        val first = Name(expectToken(TokenType.IDENTIFIER).value)
         val tail = mutableListOf<Name>()
         while (currentToken().type == TokenType.COMMA && peekToken().type == TokenType.IDENTIFIER) {
             expectToken(TokenType.COMMA)
-            tail.add(StrName(expectToken(TokenType.IDENTIFIER).value))
+            tail.add(Name(expectToken(TokenType.IDENTIFIER).value))
         }
         return NameList(listOf(first) + tail)
     }
@@ -686,14 +482,14 @@ class Parser(private val tokens: List<Token>) {
             // attrib ::= [‘<’ Name ‘>’]
             val attrib = if (currentToken().type == TokenType.LESS_THAN) {
                 expectToken(TokenType.LESS_THAN)
-                val att = StrName(expectToken(TokenType.IDENTIFIER).value).also {
+                val att = Name(expectToken(TokenType.IDENTIFIER).value).also {
                     expectToken(TokenType.GREATER_THAN)
                 }
                 Attrib(att)
             } else {
                 null
             }
-            result.add(AttName(StrName(name.value), attrib))
+            result.add(AttName(Name(name.value), attrib))
         } while (currentToken().type == TokenType.COMMA)
 
         return AttNameList(result)
@@ -704,7 +500,7 @@ class Parser(private val tokens: List<Token>) {
         current: MutableList<ASTNode> = mutableListOf(), previous: MutableList<ASTNode> = mutableListOf()
     ): Statement {
         fun createFunctionStatement(
-            stack: MutableList<ASTNode>, previous: MutableList<ASTNode>, args: Args
+            stack: MutableList<ASTNode>, args: Args
         ): Statement {
             return when (val prev = stack.last()) {
                 is PrefixExpression -> {
@@ -719,7 +515,13 @@ class Parser(private val tokens: List<Token>) {
                     MethodCall(prefix, prev, args)
                 }
 
-                else -> TODO() // ne correspond pas au pattern
+                else -> {
+                    val token = currentToken()
+                    throw SyntaxException(
+                        "${token.type} with ${token.value} is not supported yet",
+                        token.line, token.line
+                    )
+                }
             }
         }
 
@@ -730,20 +532,20 @@ class Parser(private val tokens: List<Token>) {
                 val expList = expectExplist()
                 expectToken(TokenType.CLOSE_PARENTHESIS)
 
-                return createFunctionStatement(previous, previous, expList)
+                return createFunctionStatement(previous, expList)
             }
             // args ::=  tableconstructor
             TokenType.OPEN_BRACE -> {
                 expectToken(TokenType.OPEN_BRACE)
                 TODO()
-                // expectToken(TokenType.CLOSE_BRACE)
+                // expectToken(com.github.minigdx.lua.parser.TokenType.CLOSE_BRACE)
                 // createFunctionStatement(stack, statements, expList)
                 // return tryStuff(emptyList(), statements)
             }
             // args ::=  LiteralString
             TokenType.STRING -> {
                 val str = expectToken(TokenType.STRING)
-                previous.add(createFunctionStatement(current, previous, LiteralString(str.value)))
+                previous.add(createFunctionStatement(current, LiteralString(str.value)))
                 return constructStatement(current, previous)
             }
             // varlist ::= var {‘,’ var}
@@ -768,7 +570,7 @@ class Parser(private val tokens: List<Token>) {
                 val name = expectToken(TokenType.IDENTIFIER)
                 val prefixexp = previous.last() as PrefixExpression
                 previous.removeLast()
-                previous.add(FieldVarExpression(prefixexp, StrName(name.value)))
+                previous.add(FieldVarExpression(prefixexp, Name(name.value)))
                 return constructStatement(current, previous)
             }
             // var ::=  Name
@@ -815,7 +617,11 @@ class Parser(private val tokens: List<Token>) {
             }
 
             else -> {
-                TODO("${currentToken().type} is not expected.}")
+                val token = currentToken()
+                throw SyntaxException(
+                    "${token.type} with ${token.value} is not supported yet",
+                    token.line, token.line
+                )
             }
         }
     }

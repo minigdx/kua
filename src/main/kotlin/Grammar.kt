@@ -1,11 +1,223 @@
-sealed class Name : ASTNode
+import com.github.minigdx.lua.parser.TokenType
 
-data class StrName(val value: String) : Name() {
-    override fun toString(): String = value
+sealed interface ASTNode {
+    fun print(prefix: String = "", isTail: Boolean = true, name: String = "") {
+        val node = this
+        val connector = if (isTail) "└── $name" else "├── $name"
+        val childPrefix = if (isTail) "    " else "│   "
+
+
+        when (node) {
+            is Numeral -> println("$prefix$connector Number(${node.number})")
+            is LiteralString -> println("$prefix$connector String(${node.string})")
+            is IdentifierNode -> println("$prefix$connector Identifier(${node.name})")
+            is BinaryOperationNode -> {
+                println("$prefix$connector BinaryOperation(${node.operator})")
+                node.left.print(prefix + childPrefix, false)
+                node.right.print(prefix + childPrefix, true)
+            }
+
+            is Block -> {
+                println("$prefix$connector Block(${node.statements.size} statements):")
+                node.statements.forEachAndLast { it, isLast ->
+                    it.print(prefix + childPrefix, isLast)
+                }
+            }
+
+            is Chunk -> {
+                println("$prefix$connector Chunk:")
+                node.block.print(prefix + childPrefix, true)
+            }
+
+            Nop -> println("$prefix$connector ;")
+            is Assignment -> {
+                println("$prefix$connector =")
+                node.varlist.print(prefix + childPrefix, false)
+                node.explist.print(prefix + childPrefix, true)
+            }
+
+            is AttNameList -> {
+                node.attribs.forEachAndLast { attName, isLast ->
+                    attName.print(prefix + childPrefix, isLast)
+                }
+            }
+            Break -> TODO()
+            is Do -> TODO()
+            is For -> {
+                println("$prefix$connector For")
+                node.name.print(prefix + childPrefix, false, "Name:")
+                node.init.print(prefix + childPrefix, false, "Init:")
+                node.until.print(prefix + childPrefix, false, "Until:")
+                node.step?.print(prefix + childPrefix, false, "Step:")
+                node.block.print(prefix + childPrefix, true, "Block:")
+            }
+
+            is ForName -> {
+                println("$prefix$connector ForName")
+                node.names.print(prefix + childPrefix, false, "Name:")
+                node.explist.print(prefix + childPrefix, true, "Name:")
+            }
+
+            is Func -> TODO()
+            is Funcname -> {
+                println("$prefix$connector Funcname")
+                node.root.print(prefix + childPrefix, false)
+                node.children.forEachAndLast { it, isLast ->
+                    it.print(prefix + childPrefix, isLast && node.method == null)
+                }
+                node.method?.print(prefix + childPrefix, true)
+            }
+
+            is Goto -> println("$prefix$connector Goto(${node.name})")
+            is If -> {
+                println("$prefix$connector If")
+                val hasElseIf = node.elif.isNotEmpty()
+                val hasElse = node.or != null
+
+                node.exp.print(prefix + childPrefix, false, "Exp:")
+                node.block.print(prefix + childPrefix, !hasElseIf && !hasElse, "Block:")
+
+                node.elif.forEachAndLast { (exp, block), isLast ->
+                    exp.print(prefix + childPrefix, false, "(Elseif) Exp:")
+                    block.print(prefix + childPrefix, isLast && !hasElse, "(Elseif) Block:")
+                }
+
+                node.or?.print(prefix + childPrefix, true, "(Else) Block:")
+            }
+
+            is LocalAssigment -> {
+                println("$prefix$connector LocalAssigment")
+                node.attnamelist.print(prefix + childPrefix, node.explist == null)
+                node.explist?.print(prefix + childPrefix, true)
+            }
+            is LocalFunc -> {
+                println("$prefix$connector LocalFunc")
+                node.name.print(prefix + childPrefix, false)
+                node.funcbody.print(prefix + childPrefix, true)
+            }
+            is Repeat -> {
+                println("$prefix$connector Repeat Until")
+                node.block.print(prefix + childPrefix, false)
+                node.exp.print(prefix + childPrefix, true)
+            }
+
+            is Retstat -> TODO()
+            is While -> {
+                println("$prefix$connector While Do End")
+                node.exp.print(prefix + childPrefix, false)
+                node.block.print(prefix + childPrefix, true)
+            }
+
+            is Name -> println("$prefix$connector ${node.value}")
+            is Label -> println("$prefix$connector Label(${node.name})")
+            False -> println("$prefix$connector False")
+            Nil -> println("$prefix$connector Nil")
+            ParVarArgs -> TODO()
+            True -> println("$prefix$connector True")
+            is NameList -> TODO()
+            is ExpList -> {
+                println("$prefix$connector ExpList")
+                node.expList.forEachAndLast { exp, isLast ->
+                    exp.print(prefix + childPrefix, isLast)
+                }
+            }
+
+            is Funcbody -> {
+                println("$prefix$connector Funcbody")
+                node.args?.print(prefix + childPrefix, false)
+                node.block.print(prefix + childPrefix, true)
+            }
+
+            is FunctionDefinition -> {
+                println("$prefix$connector FunctionDef")
+                node.name.print(prefix + childPrefix, false, "Name")
+                node.body.print(prefix + childPrefix, true, "Body")
+            }
+
+            is FunctionCall -> {
+                println("$prefix$connector FunctionCall")
+                node.prefixexp.print(prefix + childPrefix, false)
+                node.args.print(prefix + childPrefix, true)
+            }
+
+            is MethodCall -> TODO()
+            is ParNamelist -> {
+                node.namelist.nameList.forEachAndLast { n, isLast ->
+                    n.print(prefix + childPrefix, isLast && node.vargs == null)
+                }
+                node.vargs?.print(prefix + childPrefix, true)
+            }
+
+            is FieldVarExpression -> {
+                println("$prefix$connector IndexVarExpression")
+                node.prefixexp.print(prefix + childPrefix, false)
+                node.name.print(prefix + childPrefix, true)
+            }
+
+            is IndexVarExpression -> {
+                println("$prefix$connector IndexVarExpression")
+                node.prefixexp.print(prefix + childPrefix, false)
+                node.exp.print(prefix + childPrefix, true)
+            }
+
+            is NameVarExpression -> {
+                println("$prefix$connector NameVarExpression(${node.name})")
+            }
+
+            is VarList -> {
+                node.varList.forEachAndLast { n, isLast ->
+                    n.print(prefix + childPrefix, isLast)
+                }
+            }
+
+            is FunctionDef -> TODO()
+            is UnopExp -> TODO()
+            is Unop -> TODO()
+            is PrefixExp -> TODO()
+            is FieldList -> TODO()
+            is FieldByExp -> TODO()
+            is FieldByIndex -> {
+                println("$prefix$connector FieldByIndex")
+                node.index.print(prefix + childPrefix, false, "index")
+                node.value.print(prefix + childPrefix, true, "value")
+            }
+
+            is FieldByName -> {
+                println("$prefix$connector FieldByName")
+                node.name.print(prefix + childPrefix, false, "name")
+                node.value.print(prefix + childPrefix, true, "value")
+            }
+
+            is TableConstructor -> {
+                node.fieldList?.field?.forEachAndLast { n, isLast ->
+                    n.print(prefix + childPrefix, isLast)
+                }
+            }
+
+            is AttName -> {
+                node.name.print(prefix + childPrefix, node.attrib == null)
+                node.attrib?.print(prefix + childPrefix, true)
+            }
+
+            is Attrib -> {
+                println("$prefix$connector Attrib")
+                node.name.print(prefix + childPrefix, true)
+            }
+        }
+    }
+
+    private fun <T> List<T>.forEachAndLast(block: (T, Boolean) -> Unit) {
+        this.dropLast(1).forEach {
+            block(it, false)
+        }
+        this.lastOrNull()?.let { block(it, true) }
+    }
 }
 
-data object EmptyName : Name()
 
+class Name(val value: String) : ASTNode {
+    override fun toString(): String = value
+}
 
 // prefixexp ::= var | functioncall | ‘(’ exp ‘)’
 sealed interface PrefixExpression : ASTNode
@@ -75,7 +287,7 @@ data class Block(val statements: List<Statement>, val retstat: Retstat? = null) 
 class Label(val name: Name) : Statement
 
 // retstat ::= return [explist] [‘;’]
-class Retstat(explist: ExpList) : ASTNode
+class Retstat(val explist: ExpList) : ASTNode
 
 // parlist ::= namelist [‘,’ ‘...’] | ‘...’
 sealed interface Parlist : ASTNode

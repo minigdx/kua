@@ -59,7 +59,7 @@ class CompilerTest {
 
             val file = it.nameWithoutExtension + ".bin"
             val expected = read(it.parentFile.resolve(file).absolutePath)
-            // assertEquals(expected, output)
+            assertEquals(expected, output)
         }
     }
 }
