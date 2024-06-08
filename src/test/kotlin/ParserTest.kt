@@ -1,3 +1,6 @@
+import com.github.minigdx.lua.Lexer
+import com.github.minigdx.lua.Parser
+import com.github.minigdx.lua.parser.SyntaxException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.fail

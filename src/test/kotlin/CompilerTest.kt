@@ -1,7 +1,10 @@
+import com.github.minigdx.lua.Lexer
+import com.github.minigdx.lua.Parser
 import com.github.minigdx.lua.bytecode.read
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import com.github.minigdx.lua.Compiler
 
 class CompilerTest {
 

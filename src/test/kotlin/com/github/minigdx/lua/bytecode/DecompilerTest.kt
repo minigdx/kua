@@ -1,5 +1,6 @@
 package com.github.minigdx.lua.bytecode
 
+import com.github.minigdx.lua.Decompiler
 import kotlin.test.Test
 
 class DecompilerTest {

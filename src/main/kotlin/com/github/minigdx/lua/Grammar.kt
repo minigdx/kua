@@ -1,3 +1,5 @@
+package com.github.minigdx.lua
+
 import com.github.minigdx.lua.parser.TokenType
 
 sealed interface ASTNode {

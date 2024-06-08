@@ -1,3 +1,5 @@
+package com.github.minigdx.lua
+
 import com.github.minigdx.lua.parser.Token
 import com.github.minigdx.lua.parser.TokenType
 
