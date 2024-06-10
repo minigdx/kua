@@ -4,7 +4,7 @@ private fun makeVariant(t: Int, v: Int): Int {
     return (t or (v shl 4))
 }
 
-enum class LuaValue(val value: Int) {
+enum class LuaValueType(val value: Int) {
     LUA_NILL(makeVariant(LuaType.LUA_TNIL.value, 0)),
     LUA_FALSE(makeVariant(LuaType.LUA_TBOOLEAN.value, 0)),
     LUA_TRUE(makeVariant(LuaType.LUA_TBOOLEAN.value, 1)),

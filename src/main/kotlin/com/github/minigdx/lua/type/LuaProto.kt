@@ -1,7 +1,6 @@
 package com.github.minigdx.lua.type
 
-import com.github.minigdx.lua.bytecode.LuaValue
-import kotlin.reflect.KClass
+import com.github.minigdx.lua.bytecode.LuaValueType
 
 class LuaProto(
     val sizeupvalues: Int = -1,
@@ -14,7 +13,7 @@ class LuaProto(
     var maxStackSize: Int = -1
 
     var upValues: Array<UpValue> = emptyArray()
-    var k: Array<Konstant> = emptyArray()
+    var k: Array<LuaValue> = emptyArray()
     var p: Array<LuaProto> = emptyArray()
 
     /** --- debug information --- **/
@@ -38,7 +37,39 @@ class LuaProto(
 // https://www.lua.org/source/5.4/lobject.h.html#AbsLineInfo
 class AbsoluteLineInfo(val pc: Int, val line: Int)
 
-class Konstant(val value: Any, val type: LuaValue)
+interface LuaValue {
+    val value: Any
+    val type: LuaValueType
+}
+
+class LuaDouble(override val value: Number) : LuaValue {
+    override val type: LuaValueType = LuaValueType.LUA_NUMBER_FLOAT
+}
+
+class LuaInteger(override val value: UInt) : LuaValue {
+    override val type: LuaValueType = LuaValueType.LUA_NUMBER_INT
+}
+
+class LuaString(override val value: Any, override val type: LuaValueType) : LuaValue
+
+object LuaNil : LuaValue {
+    override val type: LuaValueType = LuaValueType.LUA_NILL
+    override val value: Any = Unit
+}
+
+interface LuaBoolean : LuaValue
+
+object LuaFalse : LuaBoolean {
+    override val type: LuaValueType = LuaValueType.LUA_FALSE
+    override val value: Boolean = false
+}
+
+object LuaTrue : LuaBoolean {
+    override val type: LuaValueType = LuaValueType.LUA_TRUE
+    override val value: Boolean = true
+}
+
+
 /*
 ** Description of a local variable for function prototypes
 ** (used for debug information)
@@ -53,5 +84,5 @@ class UpValue(
     var name: String?,  /* upvalue name (for debug information) */
     val instack: Boolean,  /* whether it is in stack (register) */
     val idx: Int,  /* index of upvalue (in stack or in outer function's list) */
-    val kind: Int, /* kind of corresponding variable */
+    val kind: Int, /* kind of corresponding variable */ // FIXME: use LuaValue
 )

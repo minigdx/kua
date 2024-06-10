@@ -1,12 +1,18 @@
 package com.github.minigdx.lua
 
 import com.github.minigdx.lua.bytecode.BytecodeReader
-import com.github.minigdx.lua.bytecode.LuaValue
+import com.github.minigdx.lua.bytecode.LuaValueType
 import com.github.minigdx.lua.type.AbsoluteLineInfo
-import com.github.minigdx.lua.type.Konstant
+import com.github.minigdx.lua.type.LuaValue
 import com.github.minigdx.lua.type.LocVar
 import com.github.minigdx.lua.type.LuaClosure
+import com.github.minigdx.lua.type.LuaDouble
+import com.github.minigdx.lua.type.LuaFalse
+import com.github.minigdx.lua.type.LuaInteger
+import com.github.minigdx.lua.type.LuaNil
 import com.github.minigdx.lua.type.LuaProto
+import com.github.minigdx.lua.type.LuaString
+import com.github.minigdx.lua.type.LuaTrue
 import com.github.minigdx.lua.type.UpValue
 
 class Decompiler {
@@ -90,24 +96,23 @@ class Decompiler {
         // https://www.lua.org/source/5.4/lundump.c.html#loadConstants
         val n = reader.readInt()
 
-        val konstants = arrayOfNulls<Konstant>(n)
+        val luaValues = arrayOfNulls<LuaValue>(n)
 
         repeat(n) {
             val byte = reader.readByte()
-            konstants[it] = when (byte.toInt()) {
-                LuaValue.LUA_NILL.value -> Konstant(Unit, LuaValue.LUA_NILL)
-                LuaValue.LUA_TRUE.value -> Konstant(true, LuaValue.LUA_TRUE)
-                LuaValue.LUA_FALSE.value -> Konstant(false, LuaValue.LUA_FALSE)
-                LuaValue.LUA_NUMBER_INT.value -> Konstant(reader.readInt64(), LuaValue.LUA_NUMBER_INT)
-                LuaValue.LUA_NUMBER_FLOAT.value -> Konstant(reader.readDouble(), LuaValue.LUA_NUMBER_FLOAT)
-
-                LuaValue.LUA_SHORT_STRING.value -> Konstant(reader.readString()!!, LuaValue.LUA_SHORT_STRING)
-                LuaValue.LUA_LONG_STRING.value -> Konstant(reader.readString()!!, LuaValue.LUA_LONG_STRING)
+            luaValues[it] = when (byte.toInt()) {
+                LuaValueType.LUA_NILL.value -> LuaNil
+                LuaValueType.LUA_TRUE.value -> LuaTrue
+                LuaValueType.LUA_FALSE.value -> LuaFalse
+                LuaValueType.LUA_NUMBER_INT.value -> LuaInteger(reader.readInt64())
+                LuaValueType.LUA_NUMBER_FLOAT.value -> LuaDouble(reader.readDouble())
+                LuaValueType.LUA_SHORT_STRING.value -> LuaString(reader.readString()!!, LuaValueType.LUA_SHORT_STRING)
+                LuaValueType.LUA_LONG_STRING.value -> LuaString(reader.readString()!!, LuaValueType.LUA_LONG_STRING)
                 else -> TODO()
             }
         }
 
-        f.k = konstants.requireNoNulls()
+        f.k = luaValues.requireNoNulls()
     }
 
     private fun readUpValues(reader: BytecodeReader, proto: LuaProto) {
@@ -119,18 +124,17 @@ class Decompiler {
             val idx = reader.readByte()
             val kind = reader.readByte()
 
-            val up = UpValue(
+            result[it] = UpValue(
                 name = null,
                 instack = instack == 0x01.toByte(),
                 idx = idx.toInt(),
                 kind = kind.toInt()
             )
-            result[it] = up
         }
         proto.upValues = result.requireNoNulls()
     }
 
-    fun decompile(bytecode: ByteArray) {
+    fun decompile(bytecode: ByteArray): LuaClosure {
         val reader = BytecodeReader(bytecode)
 
         reader.readHeader()
@@ -140,5 +144,7 @@ class Decompiler {
         val cl = LuaClosure(nbUpbals)
 
         readFunction(reader, cl.p)
+
+        return cl
     }
 }

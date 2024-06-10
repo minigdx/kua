@@ -11,11 +11,11 @@ class LuaClosure(
     nbUpVals: Int,
 ) {
 
-    var lineDefined: Int = -1
-    var lastLineDefined: Int = -1
+    var lineDefined: Int = 0
+    var lastLineDefined: Int = 0
     var isVarArgs: Boolean = false
-    var nbParams: Int = -1
-    var maxStackSize: Int = -1
+    var nbParams: Int = 0
+    var maxStackSize: Int = 0
 
     constructor(nbUpVals: Int) : this(
         sourceName = null,
@@ -23,7 +23,8 @@ class LuaClosure(
     )
 
     var p = LuaProto()
-    val upvals: Array<Any?> = Array(nbUpVals) { null }
+
+    val upvals: Array<LuaValue?> = Array(nbUpVals) { null }
 }
 
 
